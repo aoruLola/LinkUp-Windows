@@ -38,6 +38,10 @@ std::optional<bool> GetEnabledArgument(
   return std::nullopt;
 }
 
+UINT GetTrayEventCode(LPARAM lparam) {
+  return LOWORD(static_cast<DWORD_PTR>(lparam));
+}
+
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project,
@@ -224,8 +228,9 @@ void FlutterWindow::ShowTrayMenu() {
   POINT cursor_point;
   GetCursorPos(&cursor_point);
   SetForegroundWindow(GetHandle());
-  TrackPopupMenu(tray_menu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, cursor_point.x,
-                 cursor_point.y, 0, GetHandle(), nullptr);
+  TrackPopupMenu(tray_menu,
+                 TPM_BOTTOMALIGN | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                 cursor_point.x, cursor_point.y, 0, GetHandle(), nullptr);
   DestroyMenu(tray_menu);
 }
 
@@ -329,7 +334,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       break;
 
     case kTrayCallbackMessage:
-      switch (lparam) {
+      switch (GetTrayEventCode(lparam)) {
         case WM_LBUTTONDBLCLK:
         case WM_LBUTTONUP:
           ShowMainWindow();

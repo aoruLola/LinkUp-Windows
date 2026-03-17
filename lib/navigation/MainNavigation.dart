@@ -11,6 +11,7 @@ import 'package:LinkUp/utils/RadUserInfo.dart';
 import 'package:LinkUp/utils/SrunClient.dart';
 import 'package:LinkUp/utils/SrunLogin.dart';
 import 'package:LinkUp/utils/AcidDetector.dart';
+import 'package:LinkUp/utils/PortalStatusResolver.dart';
 import 'package:LinkUp/utils/SystemSettingsUtil.dart';
 
 class MainNavigator extends StatefulWidget {
@@ -116,7 +117,7 @@ class _MainNavigatorState extends State<MainNavigator> {
     if (_isLoading) return; // 如果正在登录中，跳过
 
     // 检查是否已在线
-    final isConnected = await _checkOnlineStatus();
+    final isConnected = await _resolveOnlineStatus();
 
     if (isConnected == true) {
       // 已在线，更新状态
@@ -146,6 +147,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   }
 
   // 检查在线状态 - 使用 Reality 模式同时检测在线状态和 ACID
+  // ignore: unused_element
   Future<bool?> _checkOnlineStatus() async {
     try {
       LogUtil.info('检查在线状态...');
@@ -195,6 +197,53 @@ class _MainNavigatorState extends State<MainNavigator> {
     } catch (e, stackTrace) {
       LogUtil.error('检查在线状态失败', e, stackTrace);
       return null; // 返回 null 表示检测失败（网络问题），不是不在线
+    }
+  }
+
+  Future<bool?> _resolveOnlineStatus() async {
+    try {
+      LogUtil.info('开始确认校园网在线状态...');
+
+      final detector = AcidDetector(baseUrl: client.baseURL);
+      final snapshot = await PortalStatusResolver.resolve(
+        detectReality: () => detector.reality(getAcid: true),
+        fetchUserInfo: () => client.getUserInfo(),
+      );
+
+      if (snapshot.error != null) {
+        LogUtil.warning('Reality 检测失败，将以认证服务器结果为准: ${snapshot.error}');
+      }
+
+      LogUtil.info(
+        '在线状态确认结果: online=${snapshot.isOnline}, acid=${snapshot.detectedAcid ?? "unknown"}',
+      );
+
+      if (snapshot.detectedAcid != null && snapshot.detectedAcid!.isNotEmpty) {
+        _currentAcid = snapshot.detectedAcid!;
+        final config = await ConfigUtil.loadConfig();
+        if (config != null) {
+          await ConfigUtil.saveConfig(
+            username: config['username'] ?? '',
+            password: config['password'] ?? '',
+            acid: snapshot.detectedAcid!,
+            autoAcid: true,
+          );
+          LogUtil.info('已缓存检测到的 ACID: ${snapshot.detectedAcid}');
+        }
+      }
+
+      if (snapshot.userInfo != null) {
+        _userInfo = snapshot.userInfo;
+      }
+
+      if (snapshot.isOnline && snapshot.userInfo != null) {
+        LogUtil.info('认证服务器确认在线，IP: ${snapshot.userInfo!.onlineIp ?? "unknown"}');
+      }
+
+      return snapshot.isOnline;
+    } catch (e, stackTrace) {
+      LogUtil.error('确认校园网在线状态失败', e, stackTrace);
+      return null;
     }
   }
 

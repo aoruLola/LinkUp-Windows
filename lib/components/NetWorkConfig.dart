@@ -286,7 +286,7 @@ class _NetworkConfigCardState extends State<NetworkConfigCard> {
         ),
         const SizedBox(height: 8),
         Text(
-          '配置校园网认证服务器地址，切换不同 WiFi 时可能需要修改',
+          '配置校园网认证服务器地址，切换不同网络环境时可能需要修改',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 12),

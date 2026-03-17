@@ -32,6 +32,10 @@ class UpdateUtil {
 
   /// 检查更新
   static Future<UpdateInfo?> checkUpdate() async {
+    if (Platform.isWindows) {
+      return null;
+    }
+
     try {
       // 获取当前版本
       final packageInfo = await PackageInfo.fromPlatform();
@@ -152,4 +156,3 @@ class UpdateUtil {
     }
   }
 }
-

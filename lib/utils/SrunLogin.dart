@@ -352,7 +352,7 @@ class SrunLogin {
         success: false,
         message: '网络错误: $e',
         detailedMessage:
-            '无法连接到认证服务器，请检查：\n1. 是否已连接到校园网 WiFi\n2. 网络信号是否稳定\n3. 认证服务器地址是否正确',
+            '无法连接到认证服务器，请检查：\n1. 是否已连接到校园网网络环境\n2. 网络信号或网线连接是否稳定\n3. 认证服务器地址是否正确',
         errorType: LoginErrorType.networkError,
       );
     } catch (e, stackTrace) {

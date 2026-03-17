@@ -1,26 +1,25 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:LinkUp/utils/LogUtil.dart';
 
-/// 网络工具类，用于检测 WiFi 等网络状态
+/// 网络工具类，用于检测当前是否存在可用网络环境
 class NetworkUtil {
   static final Connectivity _connectivity = Connectivity();
 
-  /// 检查 WiFi 是否开启并连接
-  /// 返回 true 表示 WiFi 已连接，false 表示未连接 WiFi
-  static Future<bool> isWifiConnected() async {
+  /// 检查是否存在可用于校园网认证的网络环境
+  /// Windows 桌面端通常也会通过以太网接入
+  static Future<bool> isNetworkEnvironmentAvailable() async {
     try {
       final List<ConnectivityResult> results = await _connectivity.checkConnectivity();
       
-      // 检查是否有 WiFi 连接
-      // 注意：connectivity_plus 3.x+ 返回的是 List<ConnectivityResult>
       for (final result in results) {
-        if (result == ConnectivityResult.wifi) {
+        if (result == ConnectivityResult.wifi ||
+            result == ConnectivityResult.ethernet) {
           return true;
         }
       }
       return false;
     } catch (e) {
-      LogUtil.error('检测 WiFi 状态失败', e);
+      LogUtil.error('检测网络环境失败', e);
       return false;
     }
   }
@@ -34,14 +33,17 @@ class NetworkUtil {
         return '无网络连接';
       }
       
+      if (results.contains(ConnectivityResult.wifi)) {
+        return 'WiFi';
+      }
+      if (results.contains(ConnectivityResult.ethernet)) {
+        return '以太网';
+      }
+
       final result = results.first;
       switch (result) {
-        case ConnectivityResult.wifi:
-          return 'WiFi';
         case ConnectivityResult.mobile:
           return '移动数据';
-        case ConnectivityResult.ethernet:
-          return '以太网';
         case ConnectivityResult.vpn:
           return 'VPN';
         case ConnectivityResult.bluetooth:
@@ -50,6 +52,10 @@ class NetworkUtil {
           return '其他网络';
         case ConnectivityResult.none:
           return '无网络连接';
+        case ConnectivityResult.wifi:
+          return 'WiFi';
+        case ConnectivityResult.ethernet:
+          return '以太网';
       }
     } catch (e) {
       return '未知';

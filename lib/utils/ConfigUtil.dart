@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:LinkUp/utils/AppStoragePaths.dart';
 import 'package:LinkUp/utils/LogUtil.dart';
 
 class ConfigUtil {
@@ -10,12 +10,12 @@ class ConfigUtil {
   // 获取配置文件路径
   static Future<String> get _localPath async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      // 确保目录存在
+      final file = await AppStoragePaths.getFile(_fileName);
+      final directory = file.parent;
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
-      return '${directory.path}/$_fileName';
+      return file.path;
     } catch (e) {
       LogUtil.error('ConfigUtil: 获取目录失败', e);
       rethrow;

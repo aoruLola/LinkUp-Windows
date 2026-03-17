@@ -26,7 +26,8 @@
 |------|------|------|
 | Android | ✅ 完整支持 | 支持所有功能包括后台保活和开机自启 |
 | iOS | ⚠️ 暂时不支持 | 暂无适配 |
-| Windows/macOS/Linux | ⚠️ 暂时不支持 | 暂无适配 |
+| Windows | ✅ 基础可用 | 支持自动认证、托盘常驻、当前用户开机自启 |
+| macOS/Linux | ⚠️ 暂时不支持 | 暂无适配 |
 | Web | ❌ 不支持 | 由于网络权限限制，不支持 Web 平台 |
 
 ## 安装
@@ -49,6 +50,9 @@ flutter pub get
 
 # 构建 Android APK
 flutter build apk --release
+
+# 构建 Windows 应用
+flutter build windows --release
 
 # 或构建 iOS 应用（需要 macOS 和 Xcode）
 flutter build ios --release
@@ -79,6 +83,13 @@ flutter build ios --release
 在设置 > 系统设置中开启"保留后台运行"：
 - 开启后应用会持续监控网络状态，即使切换到后台
 - 建议同时将此应用加入系统电池优化白名单
+
+### Windows 托盘常驻
+
+在 Windows 上，“保留后台运行”表示：
+- 关闭主窗口后应用不会退出，而是驻留在系统托盘
+- 可通过托盘菜单恢复窗口、立即重连或退出应用
+- 如果开启“开机自启动”，应用会在当前用户登录后静默启动到托盘
 
 ### 开机自启（Android）
 
@@ -119,8 +130,8 @@ lib/
 
 ## 常见问题
 
-### Q: 为什么显示"WiFi未开启"？
-A: 应用需要连接校园网 WiFi 才能正常工作。请确保已连接到校园网无线网络。
+### Q: 为什么显示“网络未连接”？
+A: 应用需要处于可用的校园网网络环境中，Windows 端也支持有线网络。
 
 ### Q: 登录失败，提示"ACID错误"？
 A: 尝试切换 ACID 模式为"自动获取"，或手动尝试其他 ACID 值（如 1, 2, 5, 11, 15）。
@@ -134,6 +145,7 @@ A:
 ### Q: 日志文件在哪里？
 A: 日志文件保存在应用配置目录下：
 - Android: `/data/data/com.mel0ny.linkup/app_flutter/error.log`
+- Windows: 应用支持目录中的 `error.log`（通常位于 `%AppData%` 下的应用目录）
 
 ## 错误代码对照
 
@@ -149,7 +161,8 @@ A: 日志文件保存在应用配置目录下：
 
 ## 开发计划
 
-- [ ] 添加桌面端支持（Windows/macOS/Linux）
+- [x] 添加 Windows 基础支持（托盘常驻 / 开机自启）
+- [ ] 添加 macOS/Linux 支持
 - [ ] 支持多账号切换
 - [ ] 深色模式支持
 

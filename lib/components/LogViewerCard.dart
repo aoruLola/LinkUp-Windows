@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:LinkUp/utils/LogUtil.dart';
 
 class LogViewerCard extends StatefulWidget {
@@ -146,7 +147,9 @@ class LogViewerDrawer extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.copy_outlined),
                         tooltip: '复制全部',
-                        onPressed: () {
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: logContent));
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('日志已复制到剪贴板')),
                           );

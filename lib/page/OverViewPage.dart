@@ -32,7 +32,10 @@ class _OverviewPageState extends State<OverviewPage> {
   String? _getStatusText() {
     if (widget.isOnline) return '在线';
     if (widget.statusMessage != null) {
-      if (widget.statusMessage!.contains('WiFi未开启')) return 'WiFi未开启';
+      if (widget.statusMessage!.contains('网络环境') ||
+          widget.statusMessage!.contains('网络断开')) {
+        return '网络未连接';
+      }
       if (widget.statusMessage!.contains('未找到配置')) return '未配置';
       if (widget.statusMessage!.contains('账号或密码为空')) return '配置不完整';
       return '离线';

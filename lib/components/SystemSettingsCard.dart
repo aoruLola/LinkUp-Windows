@@ -12,6 +12,7 @@ class SystemSettingsCard extends StatefulWidget {
 class _SystemSettingsCardState extends State<SystemSettingsCard> {
   bool _keepAlive = true;
   bool _autoStart = false;
+  bool _supportsAutoStart = false;
   bool _isLoading = true;
 
   @override
@@ -23,9 +24,11 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
   /// 加载设置
   Future<void> _loadSettings() async {
     await SystemSettingsUtil.init();
+    final supportsAutoStart = await SystemSettingsUtil.isAutoStartSupported();
     setState(() {
       _keepAlive = SystemSettingsUtil.getKeepAlive();
       _autoStart = SystemSettingsUtil.getAutoStart();
+      _supportsAutoStart = supportsAutoStart;
       _isLoading = false;
     });
   }
@@ -39,14 +42,17 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
     if (mounted) {
       setState(() {
         _keepAlive = value;
+        if (Platform.isWindows && !value) {
+          _autoStart = false;
+        }
         _isLoading = false;
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(value 
-              ? '后台运行已开启' 
-              : '后台运行已关闭'),
+              ? (Platform.isWindows ? '托盘常驻已开启' : '后台运行已开启')
+              : (Platform.isWindows ? '托盘常驻已关闭' : '后台运行已关闭')),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -66,11 +72,12 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
     
     if (mounted) {
       setState(() {
-        _autoStart = value;
+        _autoStart = SystemSettingsUtil.getAutoStart();
+        _keepAlive = SystemSettingsUtil.getKeepAlive();
         _isLoading = false;
       });
       
-      if (value) {
+      if (_autoStart) {
         // 如果开启开机自启，显示提示
         _showAutoStartGuide();
       } else {
@@ -113,28 +120,30 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
 
   /// 显示开机自启设置引导
   void _showAutoStartGuide() {
+    final String content = Platform.isWindows
+        ? '开机自启动设置已保存。\n\nWindows 将在当前用户登录后自动启动 LinkUp，并静默驻留到系统托盘。'
+        : '开机自启动设置已保存。\n\n'
+            '注意：部分国产 ROM（如小米、华为、OPPO、vivo）可能有额外的自启动管理，'
+            '需要在系统设置 > 应用管理 > 自启动管理中手动开启。';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('开机自启动已开启'),
-        content: const Text(
-          '开机自启动设置已保存。\n\n'
-          '注意：部分国产 ROM（如小米、华为、OPPO、vivo）可能有额外的自启动管理，'
-          '需要在系统设置 > 应用管理 > 自启动管理中手动开启。',
-        ),
+        content: Text(content),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('知道了'),
           ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // 打开应用设置页面
-              SystemSettingsUtil.openBatteryOptimizationSettings();
-            },
-            child: const Text('查看设置'),
-          ),
+          if (Platform.isAndroid)
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                SystemSettingsUtil.openBatteryOptimizationSettings();
+              },
+              child: const Text('查看设置'),
+            ),
         ],
       ),
     );
@@ -178,11 +187,15 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
             // 保留后台
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('保留后台运行'),
+              title: Text(Platform.isWindows ? '关闭窗口后托盘常驻' : '保留后台运行'),
               subtitle: Text(
-                _keepAlive 
-                    ? '应用将在后台持续监控网络状态（屏幕常亮）' 
-                    : '切换到后台时可能被系统休眠',
+                Platform.isWindows
+                    ? (_keepAlive
+                        ? '关闭主窗口后仍保留在系统托盘并持续监控网络'
+                        : '关闭主窗口时将直接退出应用')
+                    : (_keepAlive
+                        ? '应用将在后台持续监控网络状态（屏幕常亮）'
+                        : '切换到后台时可能被系统休眠'),
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -199,25 +212,28 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
             const Divider(height: 8),
 
             // 开机自启
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('开机自启动'),
-              subtitle: Text(
-                _autoStart 
-                    ? '设备启动时自动运行本应用' 
-                    : '需要手动打开应用',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+            if (_supportsAutoStart)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('开机自启动'),
+                subtitle: Text(
+                  Platform.isWindows
+                      ? (_autoStart
+                          ? '当前用户登录后自动启动并静默驻留到托盘'
+                          : '需要手动打开应用')
+                      : (_autoStart ? '设备启动时自动运行本应用' : '需要手动打开应用'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                value: _autoStart,
+                onChanged: _setAutoStart,
+                secondary: Icon(
+                  _autoStart ? Icons.power_settings_new : Icons.power_off_outlined,
+                  color: _autoStart ? Colors.green : Colors.grey,
                 ),
               ),
-              value: _autoStart,
-              onChanged: _setAutoStart,
-              secondary: Icon(
-                _autoStart ? Icons.power_settings_new : Icons.power_off_outlined,
-                color: _autoStart ? Colors.green : Colors.grey,
-              ),
-            ),
             
             // 提示信息
             if (_autoStart || _keepAlive)
@@ -248,8 +264,10 @@ class _SystemSettingsCardState extends State<SystemSettingsCard> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '部分国产 ROM (小米、华为、OPPO、vivo等)可能有额外的后台限制,'
-                      '建议前往系统设置 > 应用管理 > 自启动管理中手动开启。',
+                      Platform.isWindows
+                          ? '启用托盘常驻后，关闭主窗口不会结束应用。可通过系统托盘菜单恢复窗口、立即重连或退出。'
+                          : '部分国产 ROM (小米、华为、OPPO、vivo等)可能有额外的后台限制,'
+                              '建议前往系统设置 > 应用管理 > 自启动管理中手动开启。',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.blue.shade700,

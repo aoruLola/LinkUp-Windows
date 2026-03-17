@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:LinkUp/utils/AppStoragePaths.dart';
 
 /// 日志工具类 - 将日志写入文件
 class LogUtil {
@@ -13,9 +13,7 @@ class LogUtil {
     if (_initialized) return;
     
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final logPath = '${directory.path}/error.log';
-      _logFile = File(logPath);
+      _logFile = await AppStoragePaths.getFile('error.log');
       
       // 如果日志文件不存在，创建并写入头部
       if (!await _logFile!.exists()) {
@@ -97,8 +95,8 @@ class LogUtil {
   /// 获取日志文件路径
   static Future<String?> getLogFilePath() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      return '${directory.path}/error.log';
+      final file = await AppStoragePaths.getFile('error.log');
+      return file.path;
     } catch (e) {
       return null;
     }

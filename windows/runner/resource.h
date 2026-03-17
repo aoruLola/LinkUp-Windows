@@ -3,6 +3,9 @@
 // Used by Runner.rc
 //
 #define IDI_APP_ICON                    101
+#define ID_TRAY_SHOW_WINDOW             40002
+#define ID_TRAY_RECONNECT               40003
+#define ID_TRAY_EXIT                    40004
 
 // Next default values for new objects
 //

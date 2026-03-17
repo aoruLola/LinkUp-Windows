@@ -11,6 +11,7 @@ import 'package:LinkUp/utils/RadUserInfo.dart';
 import 'package:LinkUp/utils/SrunClient.dart';
 import 'package:LinkUp/utils/SrunLogin.dart';
 import 'package:LinkUp/utils/AcidDetector.dart';
+import 'package:LinkUp/utils/SystemSettingsUtil.dart';
 
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
@@ -31,6 +32,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   final SrunClient client = SrunClient();
   Timer? _monitorTimer;
   Timer? _retryTimer;
+  StreamSubscription<void>? _trayReconnectSubscription;
 
   // 检查间隔（秒）
   static const int checkInterval = 3;
@@ -39,13 +41,17 @@ class _MainNavigatorState extends State<MainNavigator> {
   void initState() {
     super.initState();
 
-    // 页面加载后检查更新
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForUpdate();
+    _trayReconnectSubscription = SystemSettingsUtil.onTrayReconnect.listen((_) {
+      _manualLogin(trigger: '托盘菜单');
     });
 
-    // 启动监控
-    _startMonitor();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _syncClientConfig();
+      if (!mounted) return;
+
+      _checkForUpdate();
+      _startMonitor();
+    });
   }
 
   Future<void> _checkForUpdate() async {
@@ -73,7 +79,21 @@ class _MainNavigatorState extends State<MainNavigator> {
     _shouldStopMonitor = true;
     _monitorTimer?.cancel();
     _retryTimer?.cancel();
+    _trayReconnectSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _syncClientConfig() async {
+    final config = await ConfigUtil.loadConfig();
+    if (config == null) {
+      return;
+    }
+
+    final authServer = config['auth_server'] ?? '10.129.1.1';
+    if (client.host != authServer) {
+      client.setHost(authServer);
+      LogUtil.info('在线检测使用认证服务器: $authServer');
+    }
   }
 
   // 启动网络监控
@@ -200,17 +220,20 @@ class _MainNavigatorState extends State<MainNavigator> {
       _statusMessage = '正在检测网络状态...';
     });
 
-    // 1. 检测 WiFi 是否开启
-    bool isWifiConnected = false;
+    // 1. 检测当前网络环境
+    bool hasNetworkEnvironment = false;
     for (int i = 0; i < 3; i++) {
-      isWifiConnected = await NetworkUtil.isWifiConnected();
-      LogUtil.info('WiFi 连接状态检测第${i + 1}次: $isWifiConnected');
-      if (isWifiConnected) break;
+      hasNetworkEnvironment = await NetworkUtil.isNetworkEnvironmentAvailable();
+      LogUtil.info('网络环境检测第${i + 1}次: $hasNetworkEnvironment');
+      if (hasNetworkEnvironment) break;
       await Future.delayed(const Duration(milliseconds: 500));
     }
     
-    if (!isWifiConnected) {
-      LogUtil.warning('WiFi 未连接，尝试直接请求认证服务器...');
+    if (!hasNetworkEnvironment) {
+      LogUtil.warning('未检测到可用网络环境，尝试直接请求认证服务器...');
+      setState(() {
+        _statusMessage = '网络环境未就绪，尝试连接...';
+      });
     }
 
     setState(() {
@@ -438,8 +461,8 @@ class _MainNavigatorState extends State<MainNavigator> {
   }
 
   // 手动触发登录（下拉刷新）
-  Future<void> _manualLogin() async {
-    LogUtil.info('用户手动触发登录（下拉刷新）');
+  Future<void> _manualLogin({String trigger = '手动刷新'}) async {
+    LogUtil.info('用户手动触发登录（$trigger）');
     // 取消当前的监控定时器
     _monitorTimer?.cancel();
 
@@ -451,7 +474,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       const Duration(seconds: checkInterval),
       (_) => _checkAndReconnect(),
     );
-    LogUtil.info('手动登录完成，监控已恢复');
+    LogUtil.info('$trigger 登录完成，监控已恢复');
   }
 
   @override

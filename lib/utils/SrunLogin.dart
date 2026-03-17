@@ -87,6 +87,23 @@ class LoginResult {
 class SrunLogin {
   static SrunClient client = SrunClient();
 
+  static String? _buildUnknownResponseDetails(Map<String, dynamic> rawData) {
+    final sanitized = <String, dynamic>{};
+
+    for (final entry in rawData.entries) {
+      final value = entry.value;
+      if (value == null) continue;
+      if (value is String && value.isEmpty) continue;
+      sanitized[entry.key] = value;
+    }
+
+    if (sanitized.isEmpty) {
+      return null;
+    }
+
+    return '认证服务器原始响应: ${jsonEncode(sanitized)}';
+  }
+
   /// 根据服务器返回的错误信息分析错误类型
   /// 参考 Go 代码中的错误码映射
   static LoginErrorType _analyzeErrorType(
@@ -224,8 +241,13 @@ class SrunLogin {
     String password,
     String acid,
     String token,
-    String ip,
-  ) async {
+    String ip, {
+    Future<Map<String, dynamic>?> Function(
+      String uri,
+      Map<String, Object>? params,
+    )?
+    requestJson,
+  }) async {
     try {
       String hmd5Password = SrunEnrypt.Hmd5(password, token);
 
@@ -273,11 +295,11 @@ class SrunLogin {
       LogUtil.info('发送登录请求: username=$username, acid=$acid');
 
       // 使用 doRequest 发送请求并解析响应
-      final result = await doRequest<Map<String, dynamic>>(
-        client.urlPortal,
-        params,
-        <String, dynamic>{},
-      );
+      final request =
+          requestJson ??
+          (String uri, Map<String, Object>? params) =>
+              doRequest<Map<String, dynamic>>(uri, params, <String, dynamic>{});
+      final result = await request(client.urlPortal, params);
 
       LogUtil.info('登录响应: $result');
 
@@ -314,7 +336,7 @@ class SrunLogin {
       } else {
         // 登录失败，分析错误类型
         final errorType = _analyzeErrorType(error, errorMsg, res);
-        final detailedMessage = _getDetailedExplanation(
+        String? detailedMessage = _getDetailedExplanation(
           errorType,
           errorMsg,
           res,
@@ -323,10 +345,19 @@ class SrunLogin {
         // 构建错误信息
         String failMessage = errorMsg.isNotEmpty ? errorMsg : error;
         if (failMessage.isEmpty) {
-          failMessage = '未知错误';
+          failMessage = '未识别认证响应';
         }
         if (res.isNotEmpty && !failMessage.contains(res)) {
           failMessage += ' ($res)';
+        }
+
+        if (errorType == LoginErrorType.unknown) {
+          final rawResponseDetails = _buildUnknownResponseDetails(result);
+          if (rawResponseDetails != null) {
+            detailedMessage = detailedMessage == null || detailedMessage.isEmpty
+                ? rawResponseDetails
+                : '$detailedMessage\n$rawResponseDetails';
+          }
         }
 
         return LoginResult(
@@ -376,12 +407,11 @@ class SrunLogin {
 
     // 脱敏 URL 中的密码参数
     final displayUri = fullUri.replace(
-      queryParameters: Map<String, String>.from(fullUri.queryParameters.map(
-        (key, value) => MapEntry(
-          key,
-          key == 'password' ? '****' : value,
+      queryParameters: Map<String, String>.from(
+        fullUri.queryParameters.map(
+          (key, value) => MapEntry(key, key == 'password' ? '****' : value),
         ),
-      )),
+      ),
     );
     LogUtil.info('HTTP GET: $displayUri');
 

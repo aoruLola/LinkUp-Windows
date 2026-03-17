@@ -151,7 +151,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   Future<bool?> _checkOnlineStatus() async {
     try {
       LogUtil.info('检查在线状态...');
-      
+
       // 使用 Reality 模式检测（同时检测在线状态和 ACID）
       final detector = AcidDetector(baseUrl: client.baseURL);
       final (detectedAcid, isOnline, err) = await detector.reality(
@@ -192,7 +192,7 @@ class _MainNavigatorState extends State<MainNavigator> {
           LogUtil.warning('已在线但获取用户信息失败: $e');
         }
       }
-      
+
       return isOnline;
     } catch (e, stackTrace) {
       LogUtil.error('检查在线状态失败', e, stackTrace);
@@ -212,6 +212,10 @@ class _MainNavigatorState extends State<MainNavigator> {
 
       if (snapshot.error != null) {
         LogUtil.warning('Reality 检测失败，将以认证服务器结果为准: ${snapshot.error}');
+      }
+
+      if (snapshot.userInfoError != null) {
+        LogUtil.warning('认证服务器在线校验失败: ${snapshot.userInfoError}');
       }
 
       LogUtil.info(
@@ -237,7 +241,9 @@ class _MainNavigatorState extends State<MainNavigator> {
       }
 
       if (snapshot.isOnline && snapshot.userInfo != null) {
-        LogUtil.info('认证服务器确认在线，IP: ${snapshot.userInfo!.onlineIp ?? "unknown"}');
+        LogUtil.info(
+          '认证服务器确认在线，IP: ${snapshot.userInfo!.onlineIp ?? "unknown"}',
+        );
       }
 
       return snapshot.isOnline;
@@ -277,7 +283,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       if (hasNetworkEnvironment) break;
       await Future.delayed(const Duration(milliseconds: 500));
     }
-    
+
     if (!hasNetworkEnvironment) {
       LogUtil.warning('未检测到可用网络环境，尝试直接请求认证服务器...');
       setState(() {
@@ -437,8 +443,13 @@ class _MainNavigatorState extends State<MainNavigator> {
 
     // 6. 检查登录结果
     if (!loginResult.success) {
+      final detailedPart =
+          loginResult.detailedMessage == null ||
+              loginResult.detailedMessage!.isEmpty
+          ? ''
+          : ', 详细信息: ${loginResult.detailedMessage}';
       LogUtil.warning(
-        '登录失败: ${loginResult.message}, 错误类型: ${loginResult.errorType}',
+        '登录失败: ${loginResult.message}, 错误类型: ${loginResult.errorType}$detailedPart',
       );
       setState(() {
         _isOnline = false;
@@ -482,10 +493,10 @@ class _MainNavigatorState extends State<MainNavigator> {
 
     try {
       final acid = await detector.detectAcid();
-      
+
       if (acid != null && acid.isNotEmpty) {
         LogUtil.info('[MainNavigation] 自动检测 ACID 成功: $acid');
-        
+
         // 保存检测到的 ACID 到配置
         final config = await ConfigUtil.loadConfig();
         if (config != null) {
@@ -497,7 +508,7 @@ class _MainNavigatorState extends State<MainNavigator> {
           );
           LogUtil.info('[MainNavigation] 已保存检测到的 ACID: $acid');
         }
-        
+
         return acid;
       } else {
         LogUtil.warning('[MainNavigation] 自动检测 ACID 失败，将使用配置的 ACID');

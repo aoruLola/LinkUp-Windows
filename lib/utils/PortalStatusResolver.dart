@@ -5,12 +5,14 @@ class PortalStatusSnapshot {
     required this.detectedAcid,
     required this.isOnline,
     required this.error,
+    required this.userInfoError,
     required this.userInfo,
   });
 
   final String? detectedAcid;
   final bool isOnline;
   final String? error;
+  final String? userInfoError;
   final RadUserInfo? userInfo;
 }
 
@@ -27,13 +29,15 @@ class PortalStatusResolver {
         detectedAcid: detectedAcid,
         isOnline: userInfo.isOnline,
         error: detectorError,
+        userInfoError: null,
         userInfo: userInfo,
       );
-    } catch (_) {
+    } catch (error) {
       return PortalStatusSnapshot(
         detectedAcid: detectedAcid,
         isOnline: false,
         error: detectorError,
+        userInfoError: error.toString(),
         userInfo: null,
       );
     }
